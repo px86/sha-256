@@ -1,0 +1,6 @@
+#+TITLE: SHA256 Algorithm Implementation
+#+AUTHOR: Pushkar Raj
+#+AUTHOR: px86@protonmail.com
+
+
+SHA256 hashing algorithm implementation in C++. (to be used in future projects)

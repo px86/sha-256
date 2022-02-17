@@ -1,0 +1,7 @@
+*.o
+*~
+main
+t1
+t2
+sha256
+.clangd
