@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Werror -Wpedantic -std=c++17 -Isrc/include -O4
+CXXFLAGS = -Wall -Werror -Wpedantic -std=c++17 -Isrc/include -O3
 
 all: sha256
 
