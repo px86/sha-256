@@ -15,7 +15,7 @@ void sha256sum::feed(std::vector<std::uint8_t> &data)
   size_t data_pos = 0;
 
   while (data_pos < data.size()) {
-    m_block[(m_block_pos++)] = data.at(data_pos++);
+    m_block.at(m_block_pos++) = data.at(data_pos++);
 
     if (m_block_pos == 64) {
       m_block_pos = 0;
@@ -24,8 +24,6 @@ void sha256sum::feed(std::vector<std::uint8_t> &data)
       update_md();
     }
   }
-
-  return;
 }
 
 void sha256sum::feed(const char *data, size_t size)
@@ -42,8 +40,6 @@ void sha256sum::feed(const char *data, size_t size)
       update_md();
     }
   }
-
-  return;
 }
 
 auto sha256sum::get() -> std::array<std::uint32_t, 8>

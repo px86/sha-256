@@ -1,6 +1,10 @@
-#+TITLE: SHA256 Algorithm Implementation
+#+TITLE: SHA-256 hashing algorithm implementation
 #+AUTHOR: Pushkar Raj
 #+AUTHOR: px86@protonmail.com
 
 
 SHA256 hashing algorithm implementation in C++. (to be used in future projects)
+
+* Note
+
+- slower than the =sha256sum= executable (pure C implementation) present in most linux like systems,  by about 60% for large files (e.g. 1.5GiB)
