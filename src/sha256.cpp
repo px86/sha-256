@@ -1,100 +1,112 @@
 #include "include/sha256.hpp"
 
-#include <algorithm>
 #include <array>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <endian.h>
-#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <cstring>
 
-sha256::sha256(const char *filepath)
+#define ROTRIGHT(a, b) ((a) >> (b) | (a) << (32 - (b)))
+
+void sha256sum::feed(std::vector<std::uint8_t> &data)
 {
-  if (!std::filesystem::is_regular_file(filepath)) {
-    std::cerr << "Error: " << filepath << " is not a regular file" << std::endl;
-    std::exit(EXIT_FAILURE);
+  size_t data_pos = 0;
+
+  while (data_pos < data.size()) {
+    m_block.at(m_block_pos++) = data.at(data_pos++);
+
+    if (m_block_pos == 64) {
+      m_block_pos = 0;
+      m_cummulative_bitlen += 512;
+
+      update_md();
+    }
   }
 
-  file = std::ifstream(filepath, std::ifstream::ate | std::ifstream::binary);
-  if (!file) {
-    std::cerr << "Error: can not open file -> " << filepath << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-
-  filesize = file.tellg();
-  file.seekg(0, std::ifstream::beg);
-
-  zero_bytes = 64 - (filesize + 1 + 8) % 64;
-
-  total_blocks = (filesize + 1 + zero_bytes + 8) / 64;
-  block_to_read = 1;
+  return;
 }
 
-auto sha256::read_block() -> std::array<std::uint8_t, 64>
+void sha256sum::feed(const char *data, size_t size)
 {
-  auto block = std::array<std::uint8_t, 64>{0};
+  size_t data_pos = 0;
 
-  if (block_to_read < total_blocks - 1) {
-    file.read((char *)block.data(), 64);
+  while (data_pos < size) {
+    m_block.at(m_block_pos++) = data[data_pos++];
 
-    if (!file) {
-      std::cerr << "Error: can not read complete file" << std::endl;
-      std::exit(EXIT_FAILURE);
+    if (m_block_pos == 64) {
+      m_block_pos = 0;
+      m_cummulative_bitlen += 512;
+
+      update_md();
     }
-  } else if (block_to_read == total_blocks - 1) {
-    // Second last block
-    file.read((char *)block.data(), 64);
+  }
 
-    if (zero_bytes > 55)
-      block[64 - (zero_bytes - 56) - 1] = 0x80;
+  return;
+}
 
+auto sha256sum::get() -> std::array<std::uint32_t, 8>
+{
+  auto i = m_block_pos;
+
+  if (m_block_pos < 56) {
+    m_block.at(i++) = 0x80;
+    while (i < 56) m_block.at(i++) = 0x00;
   } else {
-    // Last block
-    size_t bitlen_be = htobe64(filesize * 8);
-    memcpy(block.data() + 56, &bitlen_be, 8);
-
-    if (zero_bytes == 55) block[0] = 0x80;
-    else if (zero_bytes < 55) {
-      file.read((char *)block.data(), 64);
-      block[64 - (zero_bytes + 8) - 1] = 0x80;
-    }
-    file.close();
+    m_block.at(i++) = 0x80;
+    while (i < 64) m_block.at(i++) = 0x00;
+    update_md();
+    memset(m_block.data(), 0, 56);
   }
 
-  ++block_to_read;
-  return block;
+  m_cummulative_bitlen += m_block_pos * 8;
+  std::uint64_t bitlen_be = htobe64(m_cummulative_bitlen);
+  memcpy(m_block.data() + 56, &bitlen_be, 8);
+
+  update_md();
+
+  return  md;
 }
 
-void sha256::update_md(std::array<std::uint8_t, 64> block)
+auto sha256sum::get_str() -> std::string
 {
-  std::array<std::uint32_t, 64> w{0};
-  memcpy(w.data(), block.data(), 64);
-  std::transform(w.begin(), w.begin() + 64, w.begin(),
-                 [](std::uint32_t n) { return htobe32(n); });
+  std::ostringstream ss;
+  ss << std::hex;
 
-  for (int t = 16; t < 64; ++t) {
-    auto s0 = rightrotate(w[t - 15], 7) ^ rightrotate(w[t - 15], 18) ^
-              (w[t - 15] >> 3);
-    auto s1 = rightrotate(w[t - 2], 17) ^ rightrotate(w[t - 2], 19) ^
-              (w[t - 2] >> 10);
+  auto hash = get();
+  for (auto n: hash) ss << std::setw(8) << std::setfill('0') << n;
 
-    w[t] = (w[t - 16] + s0 + w[t - 7] + s1);
+  return ss.str();
+}
+
+void sha256sum::update_md()
+{
+  std::uint32_t w[64];
+
+  for (int i = 0; i < 16; ++i)
+    w[i] = htobe32(*(std::uint32_t *)&m_block[i * 4]);
+
+  for (int i = 16; i < 64; ++i) {
+    auto s0 = ROTRIGHT(w[i - 15], 7) ^ ROTRIGHT(w[i - 15], 18) ^
+              (w[i - 15] >> 3);
+    auto s1 = ROTRIGHT(w[i - 2], 17) ^ ROTRIGHT(w[i - 2], 19) ^
+              (w[i - 2] >> 10);
+
+    w[i] = (w[i - 16] + s0 + w[i - 7] + s1);
+
   }
 
   auto [ a, b, c, d, e, f, g, h ] = md;
 
-  for (int t = 0; t < 64; ++t) {
-    auto S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+  for (int i = 0; i < 64; ++i) {
+    auto S0 = ROTRIGHT(a, 2) ^ ROTRIGHT(a, 13) ^ ROTRIGHT(a, 22);
     auto maj = (a & b) ^ (a & c) ^ (b & c);
     auto t2 = S0 + maj;
 
-    auto S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+    auto S1 = ROTRIGHT(e, 6) ^ ROTRIGHT(e, 11) ^ ROTRIGHT(e, 25);
     auto ch = (e & f) ^ ((~e) & g);
-    auto t1 = h + S1 + ch + K[t] + w[t];
+    auto t1 = h + S1 + ch + K[i] + w[i];
 
     h = g;
     g = f;
@@ -116,23 +128,23 @@ void sha256::update_md(std::array<std::uint8_t, 64> block)
   md[7] += h;
 }
 
-inline auto sha256::digest() -> std::array<std::uint32_t, 8>
+auto hash_file(const char *filepath) -> std::string
 {
-  while (block_to_read <= total_blocks) update_md(read_block());
-  return md;
-}
+  auto file = std::ifstream(filepath, std::ifstream::binary);
+  if (!file) {
+    std::cerr << "Error: failed to open file -> " << filepath << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 
-inline auto sha256::digest_str() -> std::string
-{
-  while (block_to_read <= total_blocks) update_md(read_block());
+  constexpr size_t buff_size = 4096;
+  char buffer[buff_size];
 
-  std::stringstream ss;
-  ss << std::hex;
-  for (auto n: md) ss << std::setw(8) << std::setfill('0') << n;
-  return ss.str();
-}
+  sha256sum s;
 
-inline auto rightrotate(std::uint32_t a, int n) -> std::uint32_t
-{
-  return ( (a >> n) | (a << (32 - n)));
+  while (file) {
+    file.read(buffer, 4096);
+    s.feed(buffer, file.gcount());
+  }
+
+  return s.get_str();
 }

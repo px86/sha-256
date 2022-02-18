@@ -1,31 +1,28 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <string>
+#include <vector>
 
-class sha256 {
+class sha256sum {
 public:
-  sha256(const char* filepath);
-  auto digest() -> std::array<std::uint32_t, 8>;
-  auto digest_str() -> std::string;
+  sha256sum() = default;
+
+  void feed(std::vector<std::uint8_t> &data);
+  void feed(const char *data, size_t size);
+  auto get() -> std::array<std::uint32_t, 8>;
+  auto get_str() -> std::string;
 
 private:
-  std::ifstream file;
-  size_t filesize = 0;
-  int zero_bytes  = 0;
+  std::array<std::uint8_t, 64> m_block;
+  int m_block_pos = 0;
 
-  size_t block_to_read = 0;
-  size_t total_blocks  = 0;
+  std::uint64_t m_cummulative_bitlen = 0;
 
-  // 512 bits = 64 bytes
-  auto read_block() -> std::array<std::uint8_t, 64>;
+  void update_md();
 
-  // updates current md
-  void update_md(std::array<std::uint8_t, 64>);
-
-  // 32 * 8 = 256 bits long message digest
-  // Initialize with default value.
   std::array<std::uint32_t, 8> md = {
       0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
@@ -45,7 +42,6 @@ private:
           0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f,
           0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
           0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
-
 };
 
-inline auto rightrotate(std::uint32_t a, int n) -> std::uint32_t;
+auto hash_file(const char *filepath) -> std::string;
