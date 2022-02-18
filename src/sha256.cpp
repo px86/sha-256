@@ -15,7 +15,7 @@ void sha256sum::feed(std::vector<std::uint8_t> &data)
   size_t data_pos = 0;
 
   while (data_pos < data.size()) {
-    m_block.at(m_block_pos++) = data.at(data_pos++);
+    m_block[(m_block_pos++)] = data.at(data_pos++);
 
     if (m_block_pos == 64) {
       m_block_pos = 0;
@@ -33,7 +33,7 @@ void sha256sum::feed(const char *data, size_t size)
   size_t data_pos = 0;
 
   while (data_pos < size) {
-    m_block.at(m_block_pos++) = data[data_pos++];
+    m_block[m_block_pos++] = data[data_pos++];
 
     if (m_block_pos == 64) {
       m_block_pos = 0;
@@ -51,11 +51,11 @@ auto sha256sum::get() -> std::array<std::uint32_t, 8>
   auto i = m_block_pos;
 
   if (m_block_pos < 56) {
-    m_block.at(i++) = 0x80;
-    while (i < 56) m_block.at(i++) = 0x00;
+    m_block[i++] = 0x80;
+    while (i < 56) m_block[i++] = 0x00;
   } else {
-    m_block.at(i++) = 0x80;
-    while (i < 64) m_block.at(i++) = 0x00;
+    m_block[i++] = 0x80;
+    while (i < 64) m_block[i++] = 0x00;
     update_md();
     memset(m_block.data(), 0, 56);
   }
@@ -82,8 +82,6 @@ auto sha256sum::get_str() -> std::string
 
 void sha256sum::update_md()
 {
-  std::uint32_t w[64];
-
   for (int i = 0; i < 16; ++i)
     w[i] = htobe32(*(std::uint32_t *)&m_block[i * 4]);
 
@@ -93,7 +91,7 @@ void sha256sum::update_md()
     auto s1 = ROTRIGHT(w[i - 2], 17) ^ ROTRIGHT(w[i - 2], 19) ^
               (w[i - 2] >> 10);
 
-    w[i] = (w[i - 16] + s0 + w[i - 7] + s1);
+    w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 
   }
 
