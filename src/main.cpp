@@ -1,10 +1,5 @@
 #include "include/sha256.hpp"
 #include "include/argparser.hpp"
-#include <algorithm>
-#include <cstdint>
-#include <fstream>
-#include <iomanip>
-#include <sstream>
 
 int main(int argc, char **argv) {
   const char *filepath = nullptr;
@@ -13,7 +8,9 @@ int main(int argc, char **argv) {
   ap.add_argument(filepath, "Path of the file", "<filepath>");
   ap.parse(argc, argv);
 
-  std::cout << hash_file(filepath) << std::endl;
+  auto opt_hash = sha256_hash_file(filepath);
+  if (opt_hash.has_value())
+    std::cout << opt_hash.value() << std::endl;
 
   return 0;
 }
